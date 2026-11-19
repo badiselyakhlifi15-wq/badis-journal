@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BADIS JOURNAL</title>
+<style>
+:root{--bg:#f3f5fb;--panel:#fff;--ink:#182033;--muted:#6d7485;--accent:#6257e8;--line:#e7e9f1}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#eef0ff,#f8f9fc);font-family:Arial,sans-serif;color:var(--ink)}
+header{background:#24204f;color:white;padding:28px 18px;text-align:center}
+header h1{margin:0;font-size:30px;letter-spacing:1px}header p{margin:8px 0 0;color:#d9d7ff}
+main{max-width:900px;margin:24px auto;padding:0 14px;display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 25px #20244a0b}
+h2{margin:0 0 15px;font-size:20px}label{display:block;font-weight:bold;font-size:14px;margin:12px 0 6px}
+input,textarea{width:100%;padding:12px;border:1px solid #dfe2ed;border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:190px;resize:vertical}
+button{border:0;border-radius:10px;padding:11px 15px;font-weight:bold;cursor:pointer;background:var(--accent);color:#fff}
+button.secondary{background:#eeedff;color:#4038b5}button.danger{background:#fff0f0;color:#b42318}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+#entries{display:flex;flex-direction:column;gap:10px;max-height:570px;overflow:auto}
+.entry{border:1px solid var(--line);border-radius:12px;padding:13px}
+.entry h3{margin:0 0 5px;font-size:16px}.date{font-size:12px;color:var(--muted);margin-bottom:8px}
+.preview{white-space:pre-wrap;color:#444b5d;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.entry .actions{margin-top:10px}.empty{color:var(--muted);text-align:center;padding:25px 8px}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+@media(max-width:700px){main{grid-template-columns:1fr}#entries{max-height:none}}
+</style>
+</head>
+<body>
+<header><h1>📔 BADIS JOURNAL</h1><p>Mon espace personnel pour écrire mes journées</p></header>
+<main>
+<section class="panel">
+<h2 id="formTitle">✍️ Nouvelle page</h2>
+<form id="journalForm">
+<label for="title">Titre de ma page</label>
+<input id="title" maxlength="80" placeholder="Ex. : Une belle journée..." required>
+<label for="content">Ce que je veux raconter</label>
+<textarea id="content" placeholder="Écris ici tes idées, tes souvenirs et tes moments..." required></textarea>
+<div class="actions">
+<button type="submit" id="saveBtn">Enregistrer ma page</button>
+<button type="button" class="secondary" id="clearBtn">Effacer le formulaire</button>
+</div>
+</form>
+<p class="note">Tes pages sont enregistrées dans ce navigateur sur cet appareil. Elles ne sont pas automatiquement envoyées sur Internet. Pense à exporter une sauvegarde si tu changes d'appareil.</p>
+</section>
+<section class="panel">
+<h2>📚 Mes pages</h2>
+<input id="search" placeholder="Rechercher une page...">
+<div class="actions">
+<button type="button" class="secondary" id="exportBtn">Exporter mes pages</button>
+<button type="button" class="secondary" id="importBtn">Importer une sauvegarde</button>
+<input type="file" id="fileInput" accept="application/json" hidden>
+</div>
+<div id="entries" style="margin-top:14px"></div>
+</section>
+</main>
+<script>
+const KEY='badis_journal_entries_v1';
+let entries=JSON.parse(localStorage.getItem(KEY)||'[]');
+let editingId=null;
+const form=document.getElementById('journalForm'), titleInput=document.getElementById('title'), contentInput=document.getElementById('content');
+function save(){localStorage.setItem(KEY,JSON.stringify(entries));render()}
+function resetForm(){editingId=null;form.reset();document.getElementById('formTitle').textContent='✍️ Nouvelle page';document.getElementById('saveBtn').textContent='Enregistrer ma page'}
+form.addEventListener('submit',e=>{e.preventDefault();const title=titleInput.value.trim(),content=contentInput.value.trim();if(!title||!content)return;
+if(editingId){const item=entries.find(x=>x.id===editingId);if(item){item.title=title;item.content=content;item.updated=new Date().toISOString()}}
+else entries.unshift({id:Date.now().toString(),title,content,created:new Date().toISOString()});
+save();resetForm()});
+document.getElementById('clearBtn').onclick=resetForm;
+function render(){const q=document.getElementById('search').value.toLowerCase();const root=document.getElementById('entries');root.innerHTML='';
+const filtered=entries.filter(x=>(x.title+' '+x.content).toLowerCase().includes(q));
+if(!filtered.length){root.innerHTML='<div class="empty">Aucune page pour le moment.<br>Écris ta première page !</div>';return}
+filtered.forEach(item=>{const el=document.createElement('article');el.className='entry';const h=document.createElement('h3');h.textContent=item.title;const d=document.createElement('div');d.className='date';d.textContent=new Date(item.updated||item.created).toLocaleString('fr-FR');const p=document.createElement('div');p.className='preview';p.textContent=item.content.length>220?item.content.slice(0,220)+'…':item.content;
+const actions=document.createElement('div');actions.className='actions';const edit=document.createElement('button');edit.className='secondary';edit.textContent='Modifier';edit.onclick=()=>{editingId=item.id;titleInput.value=item.title;contentInput.value=item.content;document.getElementById('formTitle').textContent='🖊️ Modifier ma page';document.getElementById('saveBtn').textContent='Enregistrer les changements';window.scrollTo({top:0,behavior:'smooth'})};
+const del=document.createElement('button');del.className='danger';del.textContent='Supprimer';del.onclick=()=>{if(confirm('Supprimer cette page ?')){entries=entries.filter(x=>x.id!==item.id);save();if(editingId===item.id)resetForm()}};
+actions.append(edit,del);el.append(h,d,p,actions);root.append(el)})}
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(entries,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='badis-journal-sauvegarde.json';a.click();URL.revokeObjectURL(a.href)};
+document.getElementById('importBtn').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data)||!data.every(x=>x.title&&x.content))throw Error();if(confirm('Remplacer tes pages actuelles par la sauvegarde ?')){entries=data;save()}}catch{alert('Fichier de sauvegarde invalide.')}e.target.value=''};
+render();
+</script>
+</body>
+</html>
